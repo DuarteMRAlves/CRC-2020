@@ -81,10 +81,11 @@ print(f'Out degree variance: {np.var(out_degrees)}')
 
 # Draw
 
-# fig, ((ax11, ax12), (ax21, ax22)) = plt.subplots(2, 2, figsize=(8, 8))
+# fig, (ax11, ax12) = plt.subplots(1, 2, figsize=(8, 4))
+# # fig, ((ax11, ax12), (ax21, ax22)) = plt.subplots(2, 2, figsize=(8, 8))
 
-# ax11.scatter(unique_out_degrees, out_frequencies, s=15)
-# ax11.set_title("Out Degree Distribution")
+# ax11.scatter(unique_in_degrees, in_frequencies, s=15)
+# ax11.set_title("In Degree Distribution")
 # ax11.set_ylabel("Frequency")
 # ax11.set_xlabel("Degree")
 # ax11.set_xscale('log')
@@ -92,8 +93,8 @@ print(f'Out degree variance: {np.var(out_degrees)}')
 # ax11.set_yscale('log')
 # ax11.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
 
-# ax12.scatter(list(reversed_out_degrees), cum_out_frequencies, s=15)
-# ax12.set_title("Out Degree Cumulative Distribution")
+# ax12.scatter(list(reversed_in_degrees), cum_in_frequencies, s=15)
+# ax12.set_title("In Degree Cumulative Distribution")
 # ax12.set_ylabel("Frequency")
 # ax12.set_xlabel("Degree")
 # ax12.set_xscale('log')
@@ -101,8 +102,8 @@ print(f'Out degree variance: {np.var(out_degrees)}')
 # ax12.set_yscale('log')
 # ax12.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
 
-# ax21.scatter(unique_in_degrees, in_frequencies, s=15)
-# ax21.set_title("In Degree Distribution")
+# ax21.scatter(unique_out_degrees, out_frequencies, s=15)
+# ax21.set_title("Out Degree Distribution")
 # ax21.set_ylabel("Frequency")
 # ax21.set_xlabel("Degree")
 # ax21.set_xscale('log')
@@ -110,8 +111,8 @@ print(f'Out degree variance: {np.var(out_degrees)}')
 # ax21.set_yscale('log')
 # ax21.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
 
-# ax22.scatter(list(reversed_in_degrees), cum_in_frequencies, s=15)
-# ax22.set_title("In Degree Cumulative Distribution")
+# ax22.scatter(list(reversed_out_degrees), cum_out_frequencies, s=15)
+# ax22.set_title("Out Degree Cumulative Distribution")
 # ax22.set_ylabel("Frequency")
 # ax22.set_xlabel("Degree")
 # ax22.set_xscale('log')
@@ -119,22 +120,25 @@ print(f'Out degree variance: {np.var(out_degrees)}')
 # ax22.set_yscale('log')
 # ax22.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
 
-# plt.subplots_adjust(top=0.92, bottom=0.1, left=0.10, right=0.95, 
-#                     hspace=0.5, wspace=0.3)
+# plt.subplots_adjust(top=0.93, bottom=0.12, left=0.10, right=0.95, 
+#                     hspace=0.3, wspace=0.3)
 
-#plt.show()
+# plt.savefig('Degree-Distributions.pdf', dpi=300)
+
+# plt.show()
 
 
 # Clustering coeficient
 
-# print(f'Clustering Coefficient: {nx.average_clustering(G)}')
-# clustering_coefficients = list(sorted(nx.clustering(G).items(), key=lambda x: -x[1]))
-# print(f'10 Higher Clustering Coefficents: {clustering_coefficients[:10]}')
+print(f'Clustering Coefficient: {nx.average_clustering(G)}')
+print(f'Transitivity: {nx.transitivity(G)}')
+clustering_coefficients = list(sorted(nx.clustering(G).items(), key=lambda x: -x[1]))
+print(f'10 Higher Clustering Coefficents: {clustering_coefficients[:10]}')
 
-# print(f'# Strongly Connected Components: {nx.number_strongly_connected_components(G)}')
-# print(f'Biggest Strongly Connected Component: {len(max(nx.strongly_connected_components(G), key=len))}')
+print(f'# Strongly Connected Components: {nx.number_strongly_connected_components(G)}')
+print(f'Biggest Strongly Connected Component: {len(max(nx.strongly_connected_components(G), key=len))}')
 
-# print('Average Path Length Not Defined')
+print('Average Path Length Not Defined')
 
 # Degree Centrality
 
@@ -153,10 +157,11 @@ print(degrees)
 
 rects = ax.barh(yticks, degrees)
 ax.set_title('Packages with Highest In Degree')
-ax.set_xlabel('In Degree')
-ax.set_ylabel('Package Name')
+ax.set_xlabel('In Degree', fontsize=12)
+plt.setp(ax.get_xticklabels(), fontsize=12)
+ax.set_ylabel('Package Name', fontsize=12)
 ax.set_yticks(yticks)
-ax.set_yticklabels(yticklabels)
+ax.set_yticklabels(yticklabels, fontsize=12)
 
 for rect in rects:
 
@@ -183,6 +188,6 @@ print(f'10 Higher Out Degree: {reversed_out_degrees[:10]}')
 networkx = next(filter(lambda x: x[0] == 'networkx', reversed_out_degrees))
 print(f'Out Degree for Networkx: {networkx}')
 
-plt.subplots_adjust(left=0.2)
-#plt.savefig('Highest-In-Degree-Packages.pdf', dpi=300)
+plt.subplots_adjust(top=0.95, bottom=0.09, left=0.15, right=0.98)
+plt.savefig('Highest-In-Degree-Packages.pdf', dpi=300)
 plt.show()
