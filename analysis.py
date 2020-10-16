@@ -3,6 +3,8 @@ import csv
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import powerlaw
+import scipy.stats as st
 
 FILE_NAME = 'requirements.csv'
 
@@ -79,54 +81,41 @@ print(f"Avergae out degree: {average_out_degree}")
 print(f'Out degree mean: {np.mean(out_degrees)}')
 print(f'Out degree variance: {np.var(out_degrees)}')
 
+# Fit
+
+fit = powerlaw.Fit(in_degrees, xmin=1)
+print(f"Gamma: {fit.alpha}")
+
 # Draw
 
-# fig, (ax11, ax12) = plt.subplots(1, 2, figsize=(8, 4))
-# # fig, ((ax11, ax12), (ax21, ax22)) = plt.subplots(2, 2, figsize=(8, 8))
+fig, (ax11, ax12) = plt.subplots(1, 2, figsize=(8, 4))
 
-# ax11.scatter(unique_in_degrees, in_frequencies, s=15)
-# ax11.set_title("In Degree Distribution")
-# ax11.set_ylabel("Frequency")
-# ax11.set_xlabel("Degree")
-# ax11.set_xscale('log')
-# ax11.set_xticks([10e-2, 10e-1, 10e0, 10e1, 10e2])
-# ax11.set_yscale('log')
-# ax11.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
+ax11.scatter(unique_in_degrees, in_frequencies, s=15)
+ax11.set_title("In Degree Distribution")
+ax11.set_ylabel("Frequency")
+ax11.set_xlabel("Degree")
+ax11.set_xscale('log')
+ax11.set_xticks([10e-2, 10e-1, 10e0, 10e1, 10e2])
+ax11.set_yscale('log')
+ax11.set_yticks([10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
 
-# ax12.scatter(list(reversed_in_degrees), cum_in_frequencies, s=15)
-# ax12.set_title("In Degree Cumulative Distribution")
-# ax12.set_ylabel("Frequency")
-# ax12.set_xlabel("Degree")
-# ax12.set_xscale('log')
-# ax12.set_xticks([10e-2, 10e-1, 10e0, 10e1, 10e2])
-# ax12.set_yscale('log')
-# ax12.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
+fit.power_law.plot_pdf(color='b', linestyle='--', ax=ax11)
 
-# ax21.scatter(unique_out_degrees, out_frequencies, s=15)
-# ax21.set_title("Out Degree Distribution")
-# ax21.set_ylabel("Frequency")
-# ax21.set_xlabel("Degree")
-# ax21.set_xscale('log')
-# ax21.set_xticks([10e-2, 10e-1, 10e0, 10e1, 10e2])
-# ax21.set_yscale('log')
-# ax21.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
+ax12.scatter(list(reversed_in_degrees), cum_in_frequencies, s=15)
+ax12.set_title("In Degree Cumulative Distribution")
+ax12.set_ylabel("Frequency")
+ax12.set_xlabel("Degree")
+ax12.set_xscale('log')
+ax12.set_xticks([10e-2, 10e-1, 10e0, 10e1, 10e2])
+ax12.set_yscale('log')
+ax12.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
 
-# ax22.scatter(list(reversed_out_degrees), cum_out_frequencies, s=15)
-# ax22.set_title("Out Degree Cumulative Distribution")
-# ax22.set_ylabel("Frequency")
-# ax22.set_xlabel("Degree")
-# ax22.set_xscale('log')
-# ax22.set_xticks([10e-2, 10e-1, 10e0, 10e1, 10e2])
-# ax22.set_yscale('log')
-# ax22.set_yticks([10e-6, 10e-5, 10e-4, 10e-3, 10e-2, 10e-1])
+fit.power_law.plot_ccdf(color='b', linestyle='--', ax=ax12)
 
-# plt.subplots_adjust(top=0.93, bottom=0.12, left=0.10, right=0.95, 
-#                     hspace=0.3, wspace=0.3)
+plt.subplots_adjust(top=0.93, bottom=0.12, left=0.10, right=0.95, 
+                    hspace=0.3, wspace=0.3)
 
-# plt.savefig('Degree-Distributions.pdf', dpi=300)
-
-# plt.show()
-
+#plt.savefig('Degree-Distributions.pdf', dpi=300)
 
 # Clustering coeficient
 
@@ -189,5 +178,5 @@ networkx = next(filter(lambda x: x[0] == 'networkx', reversed_out_degrees))
 print(f'Out Degree for Networkx: {networkx}')
 
 plt.subplots_adjust(top=0.95, bottom=0.09, left=0.15, right=0.98)
-plt.savefig('Highest-In-Degree-Packages.pdf', dpi=300)
+#plt.savefig('Highest-In-Degree-Packages.pdf', dpi=300)
 plt.show()
