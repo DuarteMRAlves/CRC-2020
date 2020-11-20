@@ -9,6 +9,9 @@ class Player:
     accept percentage
     '''
 
+
+    __MUTATION_RATE = 0.005
+
     def __init__(
         self, 
         initial_money: int,
@@ -77,8 +80,8 @@ class Player:
     def mutate(self) -> None:
         # self.__propose_perc = rand.random()
         # self.__accept_perc = rand.random()
-        delta1 = 0.1 * rand.random() - 0.05
-        delta2 = 0.1 * rand.random() - 0.05
+        delta1 = self.__MUTATION_RATE * rand.random() - self.__MUTATION_RATE / 2
+        delta2 = self.__MUTATION_RATE * rand.random() - self.__MUTATION_RATE / 2
         self.__propose_perc = np.clip(self.__propose_perc + delta1, 0, 1)
         self.__accept_perc = np.clip(self.__accept_perc + delta2, 0, 1)
         assert 0 <= self.__propose_perc <= 1
@@ -90,8 +93,7 @@ class Player:
             self.__propose_perc,
             self.__accept_perc,
             self.__adaptiveness)
-        if 0.1 < rand.random():
-            player.mutate()
+        player.mutate()
         return player
     
     def __should_adapt(self, fitness: float) -> bool:
