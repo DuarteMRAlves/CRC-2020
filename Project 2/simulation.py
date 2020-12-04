@@ -1,110 +1,219 @@
+import itertools
+import arguments
 import game
 import matplotlib.pyplot as plt
+import multiprocessing as mp
 import networkx as nx
+import numba as nb
 import numpy as np
 import random as rand
 import player as pl
-import sys
 
-NUM_ROUNDS = 20000
-ADAPTIVENESS = 0.5
+args = arguments.Parser().arguments
 
-def parse_args(argv):
-    if len(argv) != 2:
-        print("Wrong number of arguments: 1 Expected but received", len(argv))
-        exit(1)
-    return int(argv[1])
+num_players = args.a
+num_simulations = args.s
+num_rounds = args.i
+punishment_ratio = args.n
+punishment_probability = args.p
+model = args.m
 
-num_players = parse_args(sys.argv)
+def grid_model(num_players):
+    num_rows = 10
+    num_columns = num_players // 10
 
-players_connections = nx.barabasi_albert_graph(num_players, 4)
-players = [ 
-    pl.Player(0, rand.random(), rand.random(), ADAPTIVENESS) 
-    for _ in range(num_players) 
-]
-players_idxs = np.arange(0, num_players, 1)
-gen = game.UltimatumGenerator(10)
+    assert num_rows * num_columns == num_players
 
-propose_over_time = []
-accept_over_time = []
+    grid_graph = nx.grid_2d_graph(num_rows, num_columns)
 
-for i in range(NUM_ROUNDS):
-    if i % 1000 == 0:
-        print(f"On round {i}")
-    # Play game
-    for pos1, pos2 in players_connections.edges():
-        gen.play_round(players[pos1], players[pos2])
-        gen.play_round(players[pos2], players[pos1])
+    generator = itertools.count()
 
-    # Collect data
-    propose_percentages = [ p.propose_perc for p in players ]
-    accept_percentages = [ p.accept_perc for p in players ]
-
-    propose_over_time.append(np.mean(propose_percentages))
-    accept_over_time.append(np.mean(accept_percentages))
-
-    if i == NUM_ROUNDS - 1:
-        break
-
-    # Evolve Population
-    new_players = [None for _ in range(num_players)]
-    for player_idx in players_connections.nodes():
-        players_to_breed_idxs = list(players_connections.neighbors(player_idx))
-        players_to_breed_idxs.append(player_idx)
-        fitness_values = np.array([players[p].money for p in players_to_breed_idxs])
-        if np.all(fitness_values == 0):
-            shape = (len(fitness_values),)
-            uniform_probability = 1 / len(fitness_values)
-            fitness_values = np.full(shape, uniform_probability)
-        else:
-            fitness_values /= np.sum(fitness_values)
-        player_to_breed_idx = np.random.choice(
-            players_to_breed_idxs, 
-            size=1, 
-            p=fitness_values)[0]
-        new_players[player_idx] = players[player_to_breed_idx].child()
-
-    players = new_players
-
-print("Simulation Complete. Showing results")
-
-_, ax1 = plt.subplots(1, 1)
-xticks = np.arange(0, NUM_ROUNDS, 1)
-ax1.plot(xticks, propose_over_time)
-ax1.plot(xticks, accept_over_time)
-ax1.set_ylim((0,1))
+    return nx.relabel_nodes(grid_graph, lambda _ : next(generator))
 
 
-_, (ax1, ax2, ax3) = plt.subplots(1, 3)
+def minimal_model(num_players):
+    assert num_players > 2
+    players_connections = nx.Graph()
+    players_connections.add_edge(0, 1)
 
-money_values = [p.money for p in players]
-nx.draw_networkx(
-    players_connections, 
-    ax=ax1, 
-    node_color=money_values, 
-    cmap='Blues', 
-    with_labels=True)
+    for i in range(2, num_players):
+        edges = list(players_connections.edges)
+        random_edge_idx = np.random.choice(len(edges), 1)[0]
+        random_edge = edges[random_edge_idx]
+        players_connections.add_edge(random_edge[0], i)
+        players_connections.add_edge(random_edge[1], i)
 
-propose_percentages = [p.propose_perc for p in players]
-nx.draw_networkx(
-    players_connections, 
-    ax=ax2, 
-    node_color=propose_percentages, 
-    vmin=0, 
-    vmax=0.5, 
-    cmap='coolwarm',
-    with_labels=True)
+    assert players_connections.order() == num_players
 
-accept_percentages = [p.accept_perc for p in players]
-nx.draw_networkx(
-    players_connections, 
-    ax=ax3, 
-    node_color=accept_percentages, 
-    vmin=0, 
-    vmax=0.5, 
-    cmap='coolwarm',
-    with_labels=True)
+    return players_connections
 
-plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0.1, hspace=0.1)
+@nb.jit(nopython=True)
+def collect_data(current_players):
+    money_values = np.zeros((num_players,))
+    propose_percentages = np.zeros((num_players,))
+    accept_percentages = np.zeros((num_players,))
+    for i in range(num_players):
+        p = current_players[i]
+        money_values[i] = p.money
+        propose_percentages[i] = p.propose_perc
+        accept_percentages[i] = p.accept_perc
+        
+    mean_money = np.mean(money_values)
+    std_money = np.std(money_values)
+    mean_propose = np.mean(propose_percentages)
+    mean_accept = np.mean(accept_percentages)
 
-plt.show()
+    return (mean_money, std_money, mean_propose, mean_accept)
+
+def simulation(sim_number):
+    if model == 'complete':
+        players_connections = nx.complete_graph(num_players)
+    elif model == 'barabasi-albert':
+        players_connections = nx.barabasi_albert_graph(num_players, 4)
+    elif model == 'latice-1d':
+        players_connections = nx.cycle_graph(num_players)
+    elif model == 'latice-2d':
+        players_connections = grid_model(num_players)
+    elif model == 'minimal':
+        players_connections = minimal_model(num_players)
+    else:
+        raise ValueError('Can not happen')
+
+    players = [ 
+        pl.Player(0, rand.random(), rand.random()) 
+        for _ in range(num_players) 
+    ]
+    players_idxs = np.arange(0, num_players, 1)
+    gen = game.UltimatumGenerator(1, punishment_ratio, punishment_probability)
+
+    mean_money_over_time = []
+    upper_std_money_over_time = []
+    lower_std_money_over_time = []
+    propose_over_time = []
+    accept_over_time = []
+
+    for i in range(num_rounds):
+        if i % 100 == 0:
+            print(f"{sim_number}: On round {i}")
+        # Play game
+        for _ in range(10):
+            for pos1, pos2 in players_connections.edges():
+                gen.play_round(players[pos1], players[pos2])
+                gen.play_round(players[pos2], players[pos1])
+
+        # Collect data
+        # money_values = [ p.money for p in players ]
+        # propose_percentages = [ p.propose_perc for p in players ]
+        # accept_percentages = [ p.accept_perc for p in players ]
+
+        # mean_money = np.mean(money_values)
+        # std_money = np.std(money_values)
+        # mean_money_over_time.append(mean_money)
+        # upper_std_money_over_time.append(mean_money + std_money)
+        # lower_std_money_over_time.append(mean_money - std_money)
+
+        # propose_over_time.append(np.mean(propose_percentages))
+        # accept_over_time.append(np.mean(accept_percentages))
+        mean_money, std_money, mean_propose, mean_accept = collect_data(players)
+        mean_money_over_time.append(mean_money)
+        upper_std_money_over_time.append(mean_money + std_money)
+        lower_std_money_over_time.append(mean_money - std_money)
+
+        propose_over_time.append(mean_propose)
+        accept_over_time.append(mean_accept)
+
+        # Dont evolve the last population
+        if i == num_rounds - 1:
+            break
+        # Evolve Population
+        new_players = [None for _ in range(num_players)]
+
+        for player_idx in players_connections.nodes():
+            players_to_breed_idxs = list(players_connections.neighbors(player_idx))
+            players_to_breed_idxs.append(player_idx)
+
+            players_to_breed = [players[p].money for p in players_to_breed_idxs]
+
+            fitness_values = np.array(players_to_breed)
+
+            if np.all(fitness_values == 0):
+                shape = (len(fitness_values),)
+                uniform_probability = 1 / len(fitness_values)
+                fitness_values = np.full(shape, uniform_probability)
+            else:
+                fitness_values /= np.sum(fitness_values)
+
+            player_to_breed_idx = np.random.choice(
+                players_to_breed_idxs, 
+                size=1, 
+                p=fitness_values)[0]
+            new_players[player_idx] = players[player_to_breed_idx].child()
+
+        players = new_players
+    
+    print(f"{sim_number}: Simulation Complete. Showing results")
+
+    return mean_money_over_time, upper_std_money_over_time, lower_std_money_over_time, propose_over_time, accept_over_time
+
+def main():
+
+    print(args)
+
+    mean_money = np.empty((num_simulations, num_rounds))
+    upper_std_money = np.empty((num_simulations, num_rounds))
+    lower_std_money = np.empty((num_simulations, num_rounds))
+    mean_propose = np.empty((num_simulations, num_rounds))
+    mean_accept = np.empty((num_simulations, num_rounds))
+
+    with mp.Pool(num_simulations) as pool:
+
+        TASKS = [(i,) for i in range(num_simulations)]
+        results = [pool.apply_async(simulation, t) for t in TASKS]
+
+        for i, r in enumerate(results):
+            sim_mean_money, sim_upper_std_money, sim_lower_std_money, sim_propose, sim_accept = r.get()
+            mean_money[i] = sim_mean_money
+            upper_std_money[i] = sim_upper_std_money
+            lower_std_money[i] = sim_lower_std_money
+            mean_propose[i] = sim_propose
+            mean_accept[i] = sim_accept
+
+    _, (ax1, ax2) = plt.subplots(1, 2)
+    xticks = np.arange(0, num_rounds, 1)
+    ax1.plot(xticks, np.mean(mean_money, axis=0), label='Mean Money')
+    ax1.plot(xticks, np.mean(upper_std_money, axis=0), label='Upper Std Money')
+    ax1.plot(xticks, np.mean(lower_std_money, axis=0), label='Lower Std Money')
+    ax1.legend()
+    ax2.plot(xticks, np.mean(mean_propose, axis=0), label='Propose')
+    ax2.plot(xticks, np.mean(mean_accept, axis=0), label='Accept')
+    ax2.legend()
+    ax2.set_ylim((0,1))
+
+    plt.show()
+
+if __name__ == '__main__':
+    main()
+
+    # _, (ax1, ax2) = plt.subplots(1, 2)
+
+    # propose_percentages = [p.propose_perc for p in players]
+    # nx.draw_networkx(
+    #     players_connections, 
+    #     ax=ax1, 
+    #     node_color=propose_percentages, 
+    #     vmin=0, 
+    #     vmax=0.5, 
+    #     cmap='coolwarm',
+    #     with_labels=True)
+
+    # accept_percentages = [p.accept_perc for p in players]
+    # nx.draw_networkx(
+    #     players_connections, 
+    #     ax=ax2, 
+    #     node_color=accept_percentages, 
+    #     vmin=0, 
+    #     vmax=0.5, 
+    #     cmap='coolwarm',
+    #     with_labels=True)
+
+    # plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0.1, hspace=0.1)

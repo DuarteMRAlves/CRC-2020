@@ -1,6 +1,17 @@
 import random as rand
+import numba as nb
+import numba.experimental as nb_exp
 import numpy as np
 
+spec = [
+    ('__money', nb.float64),
+    ('__propose_perc', nb.float64),
+    ('__accept_perc', nb.float64)
+]
+
+_MUTATION_RATE = 0.01
+
+@nb_exp.jitclass(spec)
 class Player:
     '''
     Class to model a single player
@@ -9,25 +20,19 @@ class Player:
     accept percentage
     '''
 
-
-    __MUTATION_RATE = 0.005
-
     def __init__(
         self, 
         initial_money: int,
         propose_perc: float,
-        accept_perc: float,
-        adaptiveness: float) -> None:
+        accept_perc: float) -> None:
 
         assert initial_money >= 0
         assert 0 <= propose_perc <= 1
         assert 0 <= accept_perc <= 1
-        assert 0 <= adaptiveness <= 1
 
         self.__money = initial_money
         self.__propose_perc = propose_perc
         self.__accept_perc = accept_perc
-        self.__adaptiveness = adaptiveness
 
     @property
     def money(self):
@@ -60,44 +65,24 @@ class Player:
         ammount_percentage = ammount / total_ammount
         return ammount_percentage >= self.__accept_perc
 
-    def adapt(self, other_player: 'Player') -> None:
-        '''
-        Adapt the player strategy according to the other player
-        '''
-        fitness_delta = other_player.money - self.__money
-        if self.__should_adapt(fitness_delta):
-            self.__propose_perc = other_player.propose_perc
-            self.__accept_perc = other_player.accept_perc
-            # adaptiveness = self.__adaptiveness
-            # self.__propose_perc = adaptiveness * other_player.propose_perc + \
-            #                       (1 - adaptiveness) * self.__propose_perc
-
-            # self.__accept_perc = adaptiveness * other_player.accept_perc + \
-            #                      (1 - adaptiveness) * self.__accept_perc
-            assert 0 <= self.__propose_perc <= 1
-            assert 0 <= self.__accept_perc <= 1
-
-    def mutate(self) -> None:
-        # self.__propose_perc = rand.random()
-        # self.__accept_perc = rand.random()
-        delta1 = self.__MUTATION_RATE * rand.random() - self.__MUTATION_RATE / 2
-        delta2 = self.__MUTATION_RATE * rand.random() - self.__MUTATION_RATE / 2
-        self.__propose_perc = np.clip(self.__propose_perc + delta1, 0, 1)
-        self.__accept_perc = np.clip(self.__accept_perc + delta2, 0, 1)
-        assert 0 <= self.__propose_perc <= 1
-        assert 0 <= self.__accept_perc <= 1
-
     def child(self):
+        '''
+        Creates a new offspring for the player
+        The child has the same characteristis with some small randomness
+        '''
         player = Player(
             0,
             self.__propose_perc,
-            self.__accept_perc,
-            self.__adaptiveness)
-        player.mutate()
+            self.__accept_perc)
+        player.__mutate()
         return player
-    
-    def __should_adapt(self, fitness: float) -> bool:
-        '''
-        Sigmoid function to compute adapt propability
-        '''
-        return fitness > 0
+
+    def __mutate(self) -> None:
+        delta1 = _MUTATION_RATE * rand.random() - _MUTATION_RATE / 2
+        delta2 = _MUTATION_RATE * rand.random() - _MUTATION_RATE / 2
+        #self.__propose_perc = np.clip(self.__propose_perc + delta1, 0, 1)
+        #self.__accept_perc = np.clip(self.__accept_perc + delta2, 0, 1)
+        self.__propose_perc = min(max(self.__propose_perc + delta1, 0), 1)
+        self.__accept_perc = min(max(self.__accept_perc + delta2, 0), 1)
+        assert 0 <= self.__propose_perc <= 1
+        assert 0 <= self.__accept_perc <= 1
