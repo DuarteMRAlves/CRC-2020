@@ -9,6 +9,8 @@ import numpy as np
 import random as rand
 import player as pl
 
+NUM_ROWS = 10
+
 args = arguments.Parser().arguments
 
 num_players = args.a
@@ -19,8 +21,8 @@ punishment_probability = args.p
 model = args.m
 
 def grid_model(num_players):
-    num_rows = 10
-    num_columns = num_players // 10
+    num_rows = NUM_ROWS
+    num_columns = num_players // NUM_ROWS
 
     assert num_rows * num_columns == num_players
 
@@ -65,19 +67,7 @@ def collect_data(current_players):
 
     return (mean_money, std_money, mean_propose, mean_accept)
 
-def simulation(sim_number):
-    if model == 'complete':
-        players_connections = nx.complete_graph(num_players)
-    elif model == 'barabasi-albert':
-        players_connections = nx.barabasi_albert_graph(num_players, 4)
-    elif model == 'latice-1d':
-        players_connections = nx.cycle_graph(num_players)
-    elif model == 'latice-2d':
-        players_connections = grid_model(num_players)
-    elif model == 'minimal':
-        players_connections = minimal_model(num_players)
-    else:
-        raise ValueError('Can not happen')
+def simulation(sim_number, players_connections):
 
     players = [ 
         pl.Player(0, rand.random(), rand.random()) 
@@ -93,7 +83,7 @@ def simulation(sim_number):
     accept_over_time = []
 
     for i in range(num_rounds):
-        if i % 100 == 0:
+        if i % 1000 == 0:
             print(f"{sim_number}: On round {i}")
         # Play game
         for _ in range(10):
@@ -102,25 +92,25 @@ def simulation(sim_number):
                 gen.play_round(players[pos2], players[pos1])
 
         # Collect data
-        # money_values = [ p.money for p in players ]
-        # propose_percentages = [ p.propose_perc for p in players ]
-        # accept_percentages = [ p.accept_perc for p in players ]
+        money_values = [ p.money for p in players ]
+        propose_percentages = [ p.propose_perc for p in players ]
+        accept_percentages = [ p.accept_perc for p in players ]
 
-        # mean_money = np.mean(money_values)
-        # std_money = np.std(money_values)
-        # mean_money_over_time.append(mean_money)
-        # upper_std_money_over_time.append(mean_money + std_money)
-        # lower_std_money_over_time.append(mean_money - std_money)
-
-        # propose_over_time.append(np.mean(propose_percentages))
-        # accept_over_time.append(np.mean(accept_percentages))
-        mean_money, std_money, mean_propose, mean_accept = collect_data(players)
+        mean_money = np.mean(money_values)
+        std_money = np.std(money_values)
         mean_money_over_time.append(mean_money)
         upper_std_money_over_time.append(mean_money + std_money)
         lower_std_money_over_time.append(mean_money - std_money)
 
-        propose_over_time.append(mean_propose)
-        accept_over_time.append(mean_accept)
+        propose_over_time.append(np.mean(propose_percentages))
+        accept_over_time.append(np.mean(accept_percentages))
+        # mean_money, std_money, mean_propose, mean_accept = collect_data(players)
+        # mean_money_over_time.append(mean_money)
+        # upper_std_money_over_time.append(mean_money + std_money)
+        # lower_std_money_over_time.append(mean_money - std_money)
+
+        # propose_over_time.append(mean_propose)
+        # accept_over_time.append(mean_accept)
 
         # Dont evolve the last population
         if i == num_rounds - 1:
@@ -153,11 +143,88 @@ def simulation(sim_number):
     
     print(f"{sim_number}: Simulation Complete. Showing results")
 
-    return mean_money_over_time, upper_std_money_over_time, lower_std_money_over_time, propose_over_time, accept_over_time
+    return (
+        mean_money_over_time, 
+        upper_std_money_over_time, 
+        lower_std_money_over_time, 
+        propose_over_time, 
+        accept_over_time,
+        players)
+
+def draw_grid(
+    players_connections, 
+    players_propose, 
+    players_accept,
+    ax1,
+    ax2):
+
+    num_columns = players_connections.order() // NUM_ROWS
+
+    pos = {x:(x % num_columns, x // num_columns) for x in players_connections.nodes()}
+
+    nx.draw_networkx(
+        players_connections, 
+        pos=pos,
+        ax=ax1, 
+        node_color=np.mean(players_propose, axis=0), 
+        vmin=0, 
+        vmax=1, 
+        cmap='coolwarm',
+        with_labels=True)
+
+    nx.draw_networkx(
+        players_connections, 
+        pos=pos,
+        ax=ax2, 
+        node_color=np.mean(players_accept, axis=0), 
+        vmin=0, 
+        vmax=1, 
+        cmap='coolwarm',
+        with_labels=True)
+    
+
+def draw_layout(
+    players_connections, 
+    players_propose, 
+    players_accept,
+    ax1,
+    ax2,
+    draw_fn):
+    
+    draw_fn(
+        players_connections, 
+        ax=ax1, 
+        node_color=np.mean(players_propose, axis=0), 
+        vmin=0, 
+        vmax=1, 
+        cmap='coolwarm',
+        with_labels=True)
+
+    draw_fn(
+        players_connections, 
+        ax=ax2, 
+        node_color=np.mean(players_accept, axis=0), 
+        vmin=0, 
+        vmax=1, 
+        cmap='coolwarm',
+        with_labels=True)
 
 def main():
 
     print(args)
+
+    if model == 'complete':
+        players_connections = nx.complete_graph(num_players)
+    elif model == 'barabasi-albert':
+        players_connections = nx.barabasi_albert_graph(num_players, 4)
+    elif model == 'latice-1d':
+        players_connections = nx.cycle_graph(num_players)
+    elif model == 'latice-2d':
+        players_connections = grid_model(num_players)
+    elif model == 'minimal':
+        players_connections = minimal_model(num_players)
+    else:
+        raise ValueError('Can not happen')
 
     mean_money = np.empty((num_simulations, num_rounds))
     upper_std_money = np.empty((num_simulations, num_rounds))
@@ -165,18 +232,23 @@ def main():
     mean_propose = np.empty((num_simulations, num_rounds))
     mean_accept = np.empty((num_simulations, num_rounds))
 
+    players_propose = np.empty((num_simulations, num_players))
+    players_accept = np.empty((num_simulations, num_players))
+
     with mp.Pool(num_simulations) as pool:
 
-        TASKS = [(i,) for i in range(num_simulations)]
+        TASKS = [(i, players_connections) for i in range(num_simulations)]
         results = [pool.apply_async(simulation, t) for t in TASKS]
 
         for i, r in enumerate(results):
-            sim_mean_money, sim_upper_std_money, sim_lower_std_money, sim_propose, sim_accept = r.get()
+            sim_mean_money, sim_upper_std_money, sim_lower_std_money, sim_propose, sim_accept, sim_players = r.get()
             mean_money[i] = sim_mean_money
             upper_std_money[i] = sim_upper_std_money
             lower_std_money[i] = sim_lower_std_money
             mean_propose[i] = sim_propose
             mean_accept[i] = sim_accept
+            players_propose[i] = [p.propose_perc for p in sim_players]
+            players_accept[i] = [p.accept_perc for p in sim_players]
 
     _, (ax1, ax2) = plt.subplots(1, 2)
     xticks = np.arange(0, num_rounds, 1)
@@ -189,31 +261,26 @@ def main():
     ax2.legend()
     ax2.set_ylim((0,1))
 
+    # fig, axes = plt.subplots(1, 2, figsize=(14, 7))
+
+    # (ax1, ax2) = axes
+
+    # if model == 'complete':
+    #     draw_layout(players_connections, players_propose, players_accept, ax1, ax2, nx.draw_circular)
+    # elif model == 'barabasi-albert':
+    #     draw_layout(players_connections, players_propose, players_accept, ax1, ax2, nx.draw_kamada_kawai)
+    # elif model == 'latice-1d':
+    #     draw_layout(players_connections, players_propose, players_accept, ax1, ax2, nx.draw_circular)
+    # elif model == 'latice-2d':
+    #     draw_grid(players_connections, players_propose, players_accept, ax1, ax2)
+    # elif model == 'minimal':
+    #     draw_layout(players_connections, players_propose, players_accept, ax1, ax2, nx.draw_kamada_kawai)
+    # else:
+    #     raise ValueError('Can not happen')
+
+    # plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0.1, hspace=0.1)
+    # plt.axis('off')
     plt.show()
 
 if __name__ == '__main__':
     main()
-
-    # _, (ax1, ax2) = plt.subplots(1, 2)
-
-    # propose_percentages = [p.propose_perc for p in players]
-    # nx.draw_networkx(
-    #     players_connections, 
-    #     ax=ax1, 
-    #     node_color=propose_percentages, 
-    #     vmin=0, 
-    #     vmax=0.5, 
-    #     cmap='coolwarm',
-    #     with_labels=True)
-
-    # accept_percentages = [p.accept_perc for p in players]
-    # nx.draw_networkx(
-    #     players_connections, 
-    #     ax=ax2, 
-    #     node_color=accept_percentages, 
-    #     vmin=0, 
-    #     vmax=0.5, 
-    #     cmap='coolwarm',
-    #     with_labels=True)
-
-    # plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0.1, hspace=0.1)

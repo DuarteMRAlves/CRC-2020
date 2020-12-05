@@ -11,7 +11,7 @@ spec = [
 
 _MUTATION_RATE = 0.01
 
-@nb_exp.jitclass(spec)
+#@nb_exp.jitclass(spec)
 class Player:
     '''
     Class to model a single player
