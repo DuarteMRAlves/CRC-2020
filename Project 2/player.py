@@ -1,17 +1,7 @@
 import random as rand
-import numba as nb
-import numba.experimental as nb_exp
-import numpy as np
-
-spec = [
-    ('__money', nb.float64),
-    ('__propose_perc', nb.float64),
-    ('__accept_perc', nb.float64)
-]
 
 _MUTATION_RATE = 0.01
 
-#@nb_exp.jitclass(spec)
 class Player:
     '''
     Class to model a single player

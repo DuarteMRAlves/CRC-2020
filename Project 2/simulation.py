@@ -4,7 +4,6 @@ import game
 import matplotlib.pyplot as plt
 import multiprocessing as mp
 import networkx as nx
-import numba as nb
 import numpy as np
 import random as rand
 import player as pl
@@ -49,24 +48,6 @@ def minimal_model(num_players):
 
     return players_connections
 
-@nb.jit(nopython=True)
-def collect_data(current_players):
-    money_values = np.zeros((num_players,))
-    propose_percentages = np.zeros((num_players,))
-    accept_percentages = np.zeros((num_players,))
-    for i in range(num_players):
-        p = current_players[i]
-        money_values[i] = p.money
-        propose_percentages[i] = p.propose_perc
-        accept_percentages[i] = p.accept_perc
-        
-    mean_money = np.mean(money_values)
-    std_money = np.std(money_values)
-    mean_propose = np.mean(propose_percentages)
-    mean_accept = np.mean(accept_percentages)
-
-    return (mean_money, std_money, mean_propose, mean_accept)
-
 def simulation(sim_number, players_connections):
 
     players = [ 
@@ -104,13 +85,6 @@ def simulation(sim_number, players_connections):
 
         propose_over_time.append(np.mean(propose_percentages))
         accept_over_time.append(np.mean(accept_percentages))
-        # mean_money, std_money, mean_propose, mean_accept = collect_data(players)
-        # mean_money_over_time.append(mean_money)
-        # upper_std_money_over_time.append(mean_money + std_money)
-        # lower_std_money_over_time.append(mean_money - std_money)
-
-        # propose_over_time.append(mean_propose)
-        # accept_over_time.append(mean_accept)
 
         # Dont evolve the last population
         if i == num_rounds - 1:
@@ -252,14 +226,21 @@ def main():
 
     _, (ax1, ax2) = plt.subplots(1, 2)
     xticks = np.arange(0, num_rounds, 1)
-    ax1.plot(xticks, np.mean(mean_money, axis=0), label='Mean Money')
-    ax1.plot(xticks, np.mean(upper_std_money, axis=0), label='Upper Std Money')
-    ax1.plot(xticks, np.mean(lower_std_money, axis=0), label='Lower Std Money')
+    ax1.plot(xticks, np.mean(mean_money, axis=0), label='Mean')
+    ax1.plot(xticks, np.mean(upper_std_money, axis=0), label='Mean + Std')
+    ax1.plot(xticks, np.mean(lower_std_money, axis=0), label='Mean - Std')
+    ax1.set_xlabel('Time Steps')
+    ax1.set_ylabel('Money')
     ax1.legend()
     ax2.plot(xticks, np.mean(mean_propose, axis=0), label='Propose')
     ax2.plot(xticks, np.mean(mean_accept, axis=0), label='Accept')
+    ax2.set_xlabel('Time Steps')
+    ax2.set_ylabel('Mean Propose and Accept (%)')
     ax2.legend()
     ax2.set_ylim((0,1))
+    ax2.set_yticks(np.arange(0, 1, 0.1))
+
+    plt.subplots_adjust(wspace=0.3)
 
     # fig, axes = plt.subplots(1, 2, figsize=(14, 7))
 
